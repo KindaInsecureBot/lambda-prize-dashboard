@@ -1,0 +1,37 @@
+---
+import App from '../components/App';
+import data from '../data/data.json';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lambda Prize Dashboard · Logos</title>
+    <meta name="description" content="Live dashboard for the Logos λPrize program: prizes, submissions, reviews." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #f0eee9; }
+      body {
+        font-family: 'IBM Plex Mono', ui-monospace, monospace;
+        color: #1a1a1a; -webkit-font-smoothing: antialiased;
+      }
+      * { box-sizing: border-box; }
+      #stage { position: fixed; inset: 16px; }
+      /* thin scrollbars to match the paper aesthetic */
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-thumb { background: rgba(26,26,26,0.2); }
+    </style>
+  </head>
+  <body>
+    <div id="stage">
+      <App data={data} client:load />
+    </div>
+  </body>
+</html>
