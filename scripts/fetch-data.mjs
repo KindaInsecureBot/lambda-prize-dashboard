@@ -100,21 +100,41 @@ async function main() {
   const subIssues = await gh(`/repos/${OWNER}/${ECO_REPO}/issues/${REVIEW_TRACKER}/sub_issues?per_page=100`)
     .catch(() => []);
 
-  // --- Build submissions (solution PRs) ---
-  const solutions = prs
-    .filter((p) => isSolution(p.title))
-    .map((p) => ({
+  const prizeIdSet = new Set(prizeIds);
+  const lpFromPath = (p) => (p.match(/solutions\/(LP-\d{4})/) || [])[1] || null;
+
+  // --- Build submissions: FILE-BASED detection ---
+  // A PR is a submission iff it adds/edits >=1 solutions/LP-XXXX.md targeting exactly
+  // ONE published prize, and edits at most one prizes/ file (excludes bulk template PRs).
+  console.log(`Classifying ${prs.length} PRs by changed files...`);
+  const solutions = [];
+  for (const p of prs) {
+    const files = await gh(`/repos/${OWNER}/${PRIZE_REPO}/pulls/${p.number}/files?per_page=100`)
+      .catch(() => []);
+    const paths = Array.isArray(files) ? files.map((f) => f.filename) : [];
+    const solPaths = paths.filter((x) => /^solutions\/LP-\d{4}\.md$/.test(x));
+    const prizePaths = paths.filter((x) => x.startsWith('prizes/'));
+    const lps = [...new Set(solPaths.map(lpFromPath).filter(Boolean))];
+    if (solPaths.length === 0) continue;        // not a submission
+    if (prizePaths.length > 1) continue;        // bulk catalog/template PR
+    if (lps.length !== 1) continue;             // ambiguous / multi-prize
+    const lp = lps[0];
+    if (lp === 'LP-0000') continue;             // template
+    if (!prizeIdSet.has(lp)) continue;          // prize not published (e.g. LP-0019)
+    solutions.push({
       num: p.number,
-      lp: parseLp(p.title),
+      lp,
       user: p.user.login,
       title: p.title,
       state: p.state,
       merged: !!p.merged_at,
+      draft: !!p.draft,
       created: p.created_at,
       mergedAt: p.merged_at,
       url: p.html_url,
-    }))
-    .filter((s) => s.lp);
+    });
+  }
+  console.log(`Found ${solutions.length} submissions.`);
 
   // Group by builder x prize -> classify initial/resubmission + violations
   const groups = {};
@@ -147,27 +167,50 @@ async function main() {
   }
 
   // --- Under review (from sub-issues) ---
-  const reReviewer = /\[L-Prize Submission Review\]\s*(LP[- ]?\d+|LP\d+)\s*[\u2014-]\s*(.+?)\s*[\u2014-]\s*(.+)$/;
-  const review = (Array.isArray(subIssues) ? subIssues : []).map((i) => {
+  // --- Sub-issues are ENRICHMENT only (reviewer + discord link), not the state source. ---
+  const subInfo = (Array.isArray(subIssues) ? subIssues : []).map((i) => {
     const body = i.body || '';
     const disc = (body.match(/https:\/\/discord\.com\/channels\/[^\s)\]]+/) || [])[0] || null;
     const lp = parseLp(i.title);
-    // builder name is the trailing token after the last em-dash (U+2014).
-    // Split on em-dash ONLY so hyphenated usernames (e.g. Tranquil-Flow) survive.
+    // builder = trailing token after the last em-dash (U+2014); keep hyphenated usernames intact.
     const parts = i.title.split(/\u2014/).map((x) => x.trim()).filter(Boolean);
     const builder = parts.length > 1 ? parts[parts.length - 1] : null;
     return {
       issue: i.number,
       lp,
-      title: i.title,
       builder,
       reviewer: (i.assignees || []).map((a) => a.login)[0] || null,
-      reviewers: (i.assignees || []).map((a) => a.login),
       state: i.state,
       discord: disc,
       url: i.html_url,
     };
   });
+  const findSub = (lp, builder) =>
+    subInfo.find((s) => s.lp === lp && s.builder && builder &&
+      s.builder.toLowerCase() === builder.toLowerCase()) ||
+    subInfo.find((s) => s.lp === lp);
+
+  // --- Under Review board: SOURCE OF TRUTH = open solution PRs. ---
+  // Fetch requested_reviewers per open PR; fall back to matching sub-issue reviewer.
+  const openSubs = solutions.filter((s) => s.state === 'open');
+  const review = [];
+  for (const s of openSubs) {
+    const full = await gh(`/repos/${OWNER}/${PRIZE_REPO}/pulls/${s.num}`).catch(() => ({}));
+    const reqReviewers = (full.requested_reviewers || []).map((u) => u.login);
+    const sub = findSub(s.lp, s.user);
+    const reviewer = reqReviewers[0] || (sub && sub.reviewer) || null;
+    review.push({
+      lp: s.lp,
+      pr: s.num,
+      builder: s.user,
+      reviewer,
+      reviewers: reqReviewers,
+      draft: s.draft,
+      discord: sub ? sub.discord : null,
+      reviewIssue: sub ? sub.url : null,
+      url: s.url,
+    });
+  }
 
   // --- Prize catalog ---
   const prizes = prizeIds.map((id) => {
@@ -175,15 +218,19 @@ async function main() {
     const subs = submissions.filter((s) => s.lp === id);
     const builders = new Set(subs.map((s) => s.user));
     const merged = solutions.find((s) => s.lp === id && s.merged);
+    const openCount = subs.filter((s) => s.state === 'open').length;
+    const hasSol = solutionFiles.has(id);
     return {
       id,
       desc: meta.desc || '',
       size: meta.size || null,
       status: meta.status || 'Unknown',
       stage: STATUS_TO_STAGE(meta.status),
-      hasSolutionFile: solutionFiles.has(id),
-      won: !!merged || solutionFiles.has(id),
+      hasSolutionFile: hasSol,
+      won: !!merged || hasSol,
       winner: merged ? merged.user : null,
+      deliveredByTeam: !merged && hasSol,
+      openSubmissions: openCount,
       submissionCount: subs.length,
       builderCount: builders.size,
       specUrl: `https://github.com/${OWNER}/${PRIZE_REPO}/blob/master/prizes/${id}.md`,
@@ -195,7 +242,7 @@ async function main() {
 
   // --- Aggregate stats ---
   const allBuilders = new Set(submissions.map((s) => s.user));
-  const allReviewers = new Set(review.flatMap((r) => r.reviewers));
+  const allReviewers = new Set(review.map((r) => r.reviewer).filter(Boolean));
   const wonPrizes = prizes.filter((p) => p.won);
   const stats = {
     totalPrizes: prizes.length,
@@ -204,12 +251,12 @@ async function main() {
     closed: prizes.filter((p) => /closed/i.test(p.status)).length,
     totalSubmissions: submissions.length,
     distinctSubmissions: Object.keys(groups).length,
+    underReview: review.length,
     resubmissions: submissions.filter((s) => s.kind === 'resubmission').length,
     violations: submissions.filter((s) => s.violations.length).length,
     prizesWon: wonPrizes.length,
     uniqueBuilders: allBuilders.size,
     activeReviewers: allReviewers.size,
-    openReviews: review.filter((r) => r.state === 'open').length,
   };
 
   const data = {
@@ -221,7 +268,7 @@ async function main() {
     stats,
     prizes,
     submissions: submissions.sort((a, b) => (a.lp || '').localeCompare(b.lp || '') || a.created.localeCompare(b.created)),
-    review: review.sort((a, b) => (b.state === 'open' ? 1 : 0) - (a.state === 'open' ? 1 : 0) || (a.lp || '').localeCompare(b.lp || '')),
+    review: review.sort((a, b) => (a.lp || '').localeCompare(b.lp || '') || a.pr - b.pr),
   };
 
   mkdirSync(join(ROOT, 'src', 'data'), { recursive: true });

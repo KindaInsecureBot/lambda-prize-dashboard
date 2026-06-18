@@ -97,25 +97,25 @@ function Overview({ data, onJump }: { data: Data; onJump: (s: Screen) => void })
   const max = Math.max(1, ...byCount.map((p) => p.submissionCount));
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
         <Stat label="Total prizes" value={s.totalPrizes} sub={`${s.open} open · ${s.draft} draft · ${s.closed} closed`} />
-        <Stat label="Prizes won" value={s.prizesWon} color={OK_GREEN} sub="merged solutions" />
+        <Stat label="Prizes won" value={s.prizesWon} color={OK_GREEN} sub="delivered" />
         <Stat label="Submissions" value={s.totalSubmissions} sub={`${s.distinctSubmissions} distinct builder×prize`} />
-        <Stat label="Resubmissions" value={s.resubmissions} sub={`of ${s.totalSubmissions} total`} />
-        <Stat label="Rule flags" value={s.violations} color={s.violations ? WARN_RED : INK} sub="cap / 1-per-week" />
-        <Stat label="Builders" value={s.uniqueBuilders} />
-        <Stat label="Reviewers" value={s.activeReviewers} sub={`${s.openReviews} open reviews`} />
+        <Stat label="Under review" value={s.underReview} color={LPRIZE} sub="open submission PRs" />
       </div>
 
       <SectionTitle>Submissions per prize</SectionTitle>
       <div style={{ border: `1px solid ${SUBTLE}`, background: PANEL, padding: '14px 16px' }}>
         {byCount.map((p) => (
-          <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
-            <span style={{ width: 70, fontSize: 11, fontWeight: 600, flexShrink: 0 }}>{p.id}</span>
+          <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+            <span style={{ width: 200, fontSize: 11, flexShrink: 0, lineHeight: 1.2 }}>
+              <span style={{ fontWeight: 700 }}>{p.id}</span>
+              <span style={{ color: MUTED }}> · {p.desc}</span>
+            </span>
             <div style={{ flex: 1, background: 'rgba(26,26,26,0.05)', height: 16, position: 'relative' }}>
               <div style={{ width: `${(p.submissionCount / max) * 100}%`, height: '100%', background: LPRIZE_TINT, borderRight: `2px solid ${LPRIZE}` }} />
             </div>
-            <span style={{ width: 90, fontSize: 10, color: MUTED, textAlign: 'right', flexShrink: 0 }}>
+            <span style={{ width: 92, fontSize: 10, color: MUTED, textAlign: 'right', flexShrink: 0 }}>
               {p.submissionCount} sub · {p.builderCount} bldr
             </span>
           </div>
@@ -152,44 +152,50 @@ function Row({ children, gap = 8 }: { children: any; gap?: number }) {
 }
 
 function UnderReview({ data }: { data: Data }) {
-  const open = data.review.filter((r) => r.state === 'open');
-  const closed = data.review.filter((r) => r.state !== 'open');
-  const render = (r: any) => (
-    <Card key={r.issue} accent={r.state === 'open' ? LPRIZE_BORDER : SUBTLE}>
-      <Row>
-        <LambdaDiamond size={11} color={LPRIZE} />
-        <span style={{ fontSize: 13, fontWeight: 700 }}>{r.lp || '—'}</span>
-        <Pill color={r.state === 'open' ? LPRIZE : OK_GREEN} fill={r.state === 'open' ? LPRIZE_TINT : 'transparent'}>
-          {r.state === 'open' ? 'In review' : 'Reviewed'}
-        </Pill>
-        <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 10, color: MUTED }}>#{r.issue}</span>
-      </Row>
-      <div style={{ display: 'flex', gap: 24, marginTop: 8, fontSize: 11 }}>
-        <div>
-          <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Builder</div>
-          <div style={{ fontWeight: 600, marginTop: 2 }}>{r.builder || '—'}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Reviewer</div>
-          <div style={{ fontWeight: 600, marginTop: 2, color: r.reviewer ? INK : WARN_RED }}>{r.reviewer || 'UNASSIGNED'}</div>
-        </div>
-      </div>
-      <Row gap={6}>
-        <div style={{ marginTop: 8 }} />
-      </Row>
-      <Row gap={6}>
-        {extlink(r.url, 'review issue', INK)}
-        {r.discord && extlink(r.discord, 'discord thread', '#5865F2')}
-      </Row>
-    </Card>
-  );
+  // Source of truth: every open solution PR is "under review".
+  const byPrize: Record<string, any[]> = {};
+  for (const r of data.review) (byPrize[r.lp] ||= []).push(r);
+  const lps = Object.keys(byPrize).sort();
   return (
     <div>
-      <SectionTitle>Open reviews ({open.length})</SectionTitle>
-      {open.length ? open.map(render) : <Empty>Nothing awaiting review.</Empty>}
-      <SectionTitle>Completed reviews ({closed.length})</SectionTitle>
-      {closed.map(render)}
+      <div style={{ fontSize: 11, color: MUTED, marginBottom: 4 }}>
+        {data.review.length} open submission{data.review.length === 1 ? '' : 's'} awaiting review,
+        across {lps.length} prize{lps.length === 1 ? '' : 's'}. A prize is under review while it has an open solution PR.
+      </div>
+      {lps.length === 0 && <Empty>Nothing awaiting review.</Empty>}
+      {lps.map((lp) => (
+        <div key={lp}>
+          <SectionTitle>{lp} ({byPrize[lp].length})</SectionTitle>
+          {byPrize[lp].map((r) => (
+            <Card key={r.pr} accent={LPRIZE_BORDER}>
+              <Row>
+                <LambdaDiamond size={11} color={LPRIZE} />
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{r.lp}</span>
+                <Pill color={LPRIZE} fill={LPRIZE_TINT}>{r.draft ? 'Draft PR' : 'In review'}</Pill>
+                <span style={{ flex: 1 }} />
+                <span style={{ fontSize: 10, color: MUTED }}>PR #{r.pr}</span>
+              </Row>
+              <div style={{ display: 'flex', gap: 24, marginTop: 8, fontSize: 11 }}>
+                <div>
+                  <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Builder</div>
+                  <div style={{ fontWeight: 600, marginTop: 2 }}>{r.builder || '—'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Reviewer</div>
+                  <div style={{ fontWeight: 600, marginTop: 2, color: r.reviewer ? INK : WARN_RED }}>{r.reviewer || 'UNASSIGNED'}</div>
+                </div>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <Row gap={6}>
+                  {extlink(r.url, `PR #${r.pr}`, INK)}
+                  {r.reviewIssue && extlink(r.reviewIssue, 'review issue', INK)}
+                  {r.discord && extlink(r.discord, 'discord thread', '#5865F2')}
+                </Row>
+              </div>
+            </Card>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
@@ -214,7 +220,7 @@ function Catalog({ data }: { data: Data }) {
             <StatusStageTracker stage={p.stage} />
             <div style={{ fontSize: 10, color: MUTED, margin: '8px 0' }}>
               {p.submissionCount} submission{p.submissionCount === 1 ? '' : 's'} · {p.builderCount} builder{p.builderCount === 1 ? '' : 's'}
-              {p.won && <span style={{ color: OK_GREEN, fontWeight: 700 }}>{p.winner ? ` · won by ${p.winner}` : ' · delivered'}</span>}
+              {p.won && <span style={{ color: OK_GREEN, fontWeight: 700 }}>{p.winner ? ` · won by ${p.winner}` : ' · delivered by team'}</span>}
             </div>
             <Row gap={6}>
               {extlink(p.specUrl, 'spec', INK)}
