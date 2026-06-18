@@ -135,7 +135,7 @@ function Stat({ label, value, sub, color = INK }: { label: string; value: number
 
 function Overview({ data, onJump }: { data: Data; onJump: (s: Screen) => void }) {
   const s = data.stats;
-  const [show, setShow] = useState({ pending: true, accepted: true, rejected: true });
+  const [show, setShow] = useState({ pending: true, accepted: false, rejected: false });
   const toggle = (k: keyof typeof show) => setShow((v) => ({ ...v, [k]: !v[k] }));
   const visCount = (p: any) =>
     (show.pending ? p.openSubmissions : 0) +
