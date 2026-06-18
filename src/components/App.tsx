@@ -80,6 +80,26 @@ export default function App({ data }: { data: Data }) {
   );
 }
 
+const SPEC_URL = (lp: string) => `https://github.com/logos-co/lambda-prize/blob/master/prizes/${lp}.md`;
+
+function daysAgo(iso?: string) {
+  if (!iso) return '—';
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (d <= 0) return 'today';
+  if (d === 1) return '1 day ago';
+  return `${d} days ago`;
+}
+
+function SpecLink({ lp, desc, color = INK, bold }: { lp: string; desc?: string; color?: string; bold?: boolean }) {
+  return (
+    <a href={SPEC_URL(lp)} target="_blank" rel="noreferrer noopener"
+      style={{ color, textDecoration: 'none', borderBottom: `1px dotted ${color}` }}>
+      <span style={{ fontWeight: 700 }}>{lp}</span>
+      {desc ? <span style={{ fontWeight: bold ? 700 : 400, color: bold ? color : MUTED }}> · {desc}</span> : null}
+    </a>
+  );
+}
+
 function Legend({ color, label }: { color: string; label: string }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
@@ -126,8 +146,7 @@ function Overview({ data, onJump }: { data: Data; onJump: (s: Screen) => void })
           return (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
               <span style={{ width: 200, fontSize: 11, flexShrink: 0, lineHeight: 1.2 }}>
-                <span style={{ fontWeight: 700 }}>{p.id}</span>
-                <span style={{ color: MUTED }}> · {p.desc}</span>
+                <SpecLink lp={p.id} desc={p.desc} />
               </span>
               <div style={{ flex: 1, background: 'rgba(26,26,26,0.05)', height: 16, display: 'flex' }}>
                 {seg(p.openSubmissions, LPRIZE)}
@@ -177,7 +196,7 @@ function ReviewCard({ r, queued }: { r: any; queued?: boolean }) {
     <Card accent={queued ? SUBTLE : LPRIZE_BORDER}>
       <Row>
         <LambdaDiamond size={11} color={LPRIZE} />
-        <span style={{ fontSize: 13, fontWeight: 700 }}>{r.lp}</span>
+        <span style={{ fontSize: 13 }}><SpecLink lp={r.lp} /></span>
         <Pill color={queued ? MUTED : LPRIZE} fill={queued ? 'transparent' : LPRIZE_TINT}>
           {queued ? 'In line' : r.draft ? 'Draft PR' : 'In review'}
         </Pill>
@@ -196,7 +215,7 @@ function ReviewCard({ r, queued }: { r: any; queued?: boolean }) {
         {r.created && (
           <div>
             <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Submitted</div>
-            <div style={{ fontWeight: 600, marginTop: 2 }}>{r.created.slice(0, 10)}</div>
+            <div style={{ fontWeight: 600, marginTop: 2 }} title={r.created.slice(0, 10)}>{daysAgo(r.created)}</div>
           </div>
         )}
       </div>
