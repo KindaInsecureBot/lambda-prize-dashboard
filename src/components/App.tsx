@@ -203,21 +203,19 @@ function ReviewCard({ r, queued }: { r: any; queued?: boolean }) {
         <span style={{ flex: 1 }} />
         <span style={{ fontSize: 10, color: MUTED }}>PR #{r.pr}</span>
       </Row>
-      <div style={{ display: 'flex', gap: 24, marginTop: 8, fontSize: 11 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '120px 120px 1fr', gap: 16, marginTop: 8, fontSize: 11 }}>
         <div>
           <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Builder</div>
-          <div style={{ fontWeight: 600, marginTop: 2 }}>{r.builder || '—'}</div>
+          <div style={{ fontWeight: 600, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.builder || '—'}</div>
         </div>
         <div>
           <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Reviewer</div>
-          <div style={{ fontWeight: 600, marginTop: 2, color: r.reviewer ? INK : WARN_RED }}>{r.reviewer || 'UNASSIGNED'}</div>
+          <div style={{ fontWeight: 600, marginTop: 2, color: r.reviewer ? INK : WARN_RED, overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.reviewer || 'UNASSIGNED'}</div>
         </div>
-        {r.created && (
-          <div>
-            <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Submitted</div>
-            <div style={{ fontWeight: 600, marginTop: 2 }} title={r.created.slice(0, 10)}>{daysAgo(r.created)}</div>
-          </div>
-        )}
+        <div>
+          <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Submitted</div>
+          <div style={{ fontWeight: 600, marginTop: 2 }} title={r.created ? r.created.slice(0, 10) : ''}>{daysAgo(r.created)}</div>
+        </div>
       </div>
       <div style={{ marginTop: 8 }}>
         <Row gap={6}>
