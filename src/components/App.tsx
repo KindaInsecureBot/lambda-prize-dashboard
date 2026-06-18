@@ -305,9 +305,26 @@ function UnderReview({ data }: { data: Data }) {
 
 function Catalog({ data }: { data: Data }) {
   const order = (st: string) => (/open/i.test(st) ? 0 : /draft/i.test(st) ? 1 : 2);
-  const prizes = [...data.prizes].sort((a, b) => order(a.status) - order(b.status) || a.id.localeCompare(b.id));
+  const keyOf = (st: string) => (/open/i.test(st) ? 'open' : /draft/i.test(st) ? 'draft' : /closed/i.test(st) ? 'closed' : 'unknown');
+  const [show, setShow] = useState({ open: true, draft: false, closed: false });
+  const toggle = (k: keyof typeof show) => setShow((v) => ({ ...v, [k]: !v[k] }));
+  const all = [...data.prizes].sort((a, b) => order(a.status) - order(b.status) || a.id.localeCompare(b.id));
+  const counts = { open: 0, draft: 0, closed: 0, unknown: 0 } as Record<string, number>;
+  for (const p of all) counts[keyOf(p.status)]++;
+  const prizes = all.filter((p) => {
+    const k = keyOf(p.status);
+    return k === 'unknown' ? true : (show as any)[k];
+  });
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
+    <div>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 10, color: MUTED, margin: '0 0 12px 2px', alignItems: 'center' }}>
+        <Legend color={STATUS_COLOR.open} label={`Open (${counts.open})`} active={show.open} onClick={() => toggle('open')} />
+        <Legend color={STATUS_COLOR.draft} label={`Draft (${counts.draft})`} active={show.draft} onClick={() => toggle('draft')} />
+        <Legend color={STATUS_COLOR.closed} label={`Closed (${counts.closed})`} active={show.closed} onClick={() => toggle('closed')} />
+        <span style={{ color: SUBTLE }}>(click to filter)</span>
+      </div>
+      {prizes.length === 0 && <Empty>No prizes match the selected filters.</Empty>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
       {prizes.map((p) => {
         const key = (/open/i.test(p.status) ? 'open' : /draft/i.test(p.status) ? 'draft' : /closed/i.test(p.status) ? 'closed' : 'unknown');
         return (
@@ -332,6 +349,7 @@ function Catalog({ data }: { data: Data }) {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
