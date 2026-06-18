@@ -100,10 +100,22 @@ function SpecLink({ lp, desc, color = INK, bold }: { lp: string; desc?: string; 
   );
 }
 
-function Legend({ color, label }: { color: string; label: string }) {
+function Legend({ color, label, active = true, onClick }: { color: string; label: string; active?: boolean; onClick?: () => void }) {
+  const clickable = !!onClick;
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ width: 10, height: 10, background: color, display: 'inline-block' }} />
+    <span
+      onClick={onClick}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        cursor: clickable ? 'pointer' : 'default',
+        opacity: active ? 1 : 0.4,
+        userSelect: 'none',
+        textDecoration: active ? 'none' : 'line-through',
+      }}
+    >
+      <span style={{ width: 10, height: 10, background: color, display: 'inline-block',
+        outline: active ? 'none' : `1px solid ${color}`, outlineOffset: 1,
+        ...(active ? {} : { background: 'transparent' }) }} />
       {label}
     </span>
   );
@@ -121,8 +133,16 @@ function Stat({ label, value, sub, color = INK }: { label: string; value: number
 
 function Overview({ data, onJump }: { data: Data; onJump: (s: Screen) => void }) {
   const s = data.stats;
-  const byCount = [...data.prizes].filter((p) => p.submissionCount > 0).sort((a, b) => b.submissionCount - a.submissionCount);
-  const max = Math.max(1, ...byCount.map((p) => p.submissionCount));
+  const [show, setShow] = useState({ pending: true, accepted: true, rejected: true });
+  const toggle = (k: keyof typeof show) => setShow((v) => ({ ...v, [k]: !v[k] }));
+  const visCount = (p: any) =>
+    (show.pending ? p.openSubmissions : 0) +
+    (show.accepted ? p.acceptedSubmissions : 0) +
+    (show.rejected ? p.rejectedSubmissions : 0);
+  const byCount = [...data.prizes]
+    .filter((p) => visCount(p) > 0)
+    .sort((a, b) => visCount(b) - visCount(a));
+  const max = Math.max(1, ...byCount.map((p) => visCount(p)));
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
@@ -135,9 +155,10 @@ function Overview({ data, onJump }: { data: Data; onJump: (s: Screen) => void })
 
       <SectionTitle>Submissions per prize</SectionTitle>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 10, color: MUTED, margin: '0 0 8px 2px' }}>
-        <Legend color={LPRIZE} label="Pending review" />
-        <Legend color={OK_GREEN} label="Accepted (won)" />
-        <Legend color={WARN_RED} label="Rejected / closed" />
+        <Legend color={LPRIZE} label="Pending review" active={show.pending} onClick={() => toggle('pending')} />
+        <Legend color={OK_GREEN} label="Accepted (won)" active={show.accepted} onClick={() => toggle('accepted')} />
+        <Legend color={WARN_RED} label="Rejected / closed" active={show.rejected} onClick={() => toggle('rejected')} />
+        <span style={{ color: SUBTLE }}>(click to filter)</span>
       </div>
       <div style={{ border: `1px solid ${SUBTLE}`, background: PANEL, padding: '14px 16px' }}>
         {byCount.map((p) => {
@@ -149,13 +170,13 @@ function Overview({ data, onJump }: { data: Data; onJump: (s: Screen) => void })
                 <SpecLink lp={p.id} desc={p.desc} />
               </span>
               <div style={{ flex: 1, background: 'rgba(26,26,26,0.05)', height: 16, display: 'flex' }}>
-                {seg(p.openSubmissions, LPRIZE)}
-                {seg(p.acceptedSubmissions, OK_GREEN)}
-                {seg(p.rejectedSubmissions, WARN_RED)}
+                {show.pending && seg(p.openSubmissions, LPRIZE)}
+                {show.accepted && seg(p.acceptedSubmissions, OK_GREEN)}
+                {show.rejected && seg(p.rejectedSubmissions, WARN_RED)}
               </div>
               <span style={{ width: 116, fontSize: 10, color: MUTED, textAlign: 'right', flexShrink: 0 }}>
-                {p.submissionCount} total
-                {p.openSubmissions ? ` · ${p.openSubmissions} pending` : ''}
+                {visCount(p)} shown
+                {show.pending && p.openSubmissions ? ` · ${p.openSubmissions} pending` : ''}
               </span>
             </div>
           );
