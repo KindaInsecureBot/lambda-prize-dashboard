@@ -92,11 +92,13 @@ function daysAgo(iso?: string) {
 
 function SpecLink({ lp, desc, color = INK, bold }: { lp: string; desc?: string; color?: string; bold?: boolean }) {
   return (
-    <a href={SPEC_URL(lp)} target="_blank" rel="noreferrer noopener"
-      style={{ color, textDecoration: 'none', borderBottom: `1px dotted ${color}` }}>
-      <span style={{ fontWeight: 700 }}>{lp}</span>
+    <>
+      <a href={SPEC_URL(lp)} target="_blank" rel="noreferrer noopener"
+        style={{ color, textDecoration: 'none', borderBottom: `1px dotted ${color}`, fontWeight: 700 }}>
+        {lp}
+      </a>
       {desc ? <span style={{ fontWeight: bold ? 700 : 400, color: bold ? color : MUTED }}> · {desc}</span> : null}
-    </a>
+    </>
   );
 }
 
@@ -212,12 +214,12 @@ function Row({ children, gap = 8 }: { children: any; gap?: number }) {
   return <div style={{ display: 'flex', alignItems: 'center', gap, flexWrap: 'wrap' }}>{children}</div>;
 }
 
-function ReviewCard({ r, queued }: { r: any; queued?: boolean }) {
+function ReviewCard({ r, queued, desc }: { r: any; queued?: boolean; desc?: string }) {
   return (
     <Card accent={queued ? SUBTLE : LPRIZE_BORDER}>
       <Row>
         <LambdaDiamond size={11} color={LPRIZE} />
-        <span style={{ fontSize: 13 }}><SpecLink lp={r.lp} /></span>
+        <span style={{ fontSize: 13 }}><SpecLink lp={r.lp} desc={desc} /></span>
         <Pill color={queued ? MUTED : LPRIZE} fill={queued ? 'transparent' : LPRIZE_TINT}>
           {queued ? 'In line' : r.draft ? 'Draft PR' : 'In review'}
         </Pill>
@@ -249,13 +251,13 @@ function ReviewCard({ r, queued }: { r: any; queued?: boolean }) {
   );
 }
 
-function PrizeReviewGroup({ lp, items }: { lp: string; items: any[] }) {
+function PrizeReviewGroup({ lp, items, desc }: { lp: string; items: any[]; desc?: string }) {
   // items are pre-sorted oldest-first; the oldest is the one actually under review.
   const [open, setOpen] = useState(false);
   const [head, ...queue] = items;
   return (
     <div style={{ marginBottom: 14 }}>
-      <ReviewCard r={head} />
+      <ReviewCard r={head} desc={desc} />
       {queue.length > 0 && (
         <div style={{ marginTop: 4 }}>
           <button
@@ -271,7 +273,7 @@ function PrizeReviewGroup({ lp, items }: { lp: string; items: any[] }) {
           </button>
           {open && (
             <div style={{ marginTop: 6, paddingLeft: 10, borderLeft: `2px solid ${SUBTLE}` }}>
-              {queue.map((r) => <ReviewCard key={r.pr} r={r} queued />)}
+              {queue.map((r) => <ReviewCard key={r.pr} r={r} queued desc={desc} />)}
             </div>
           )}
         </div>
@@ -287,6 +289,8 @@ function UnderReview({ data }: { data: Data }) {
   for (const r of data.review) (byPrize[r.lp] ||= []).push(r);
   const lps = Object.keys(byPrize).sort();
   for (const lp of lps) byPrize[lp].sort((a, b) => (a.created || '').localeCompare(b.created || ''));
+  const nameByLp: Record<string, string> = {};
+  for (const p of data.prizes) nameByLp[p.id] = p.desc;
   return (
     <div>
       <div style={{ fontSize: 11, color: MUTED, marginBottom: 12 }}>
@@ -294,7 +298,7 @@ function UnderReview({ data }: { data: Data }) {
         across {lps.length} prize{lps.length === 1 ? '' : 's'}. Showing the oldest in review per prize; expand to see the queue.
       </div>
       {lps.length === 0 && <Empty>Nothing awaiting review.</Empty>}
-      {lps.map((lp) => <PrizeReviewGroup key={lp} lp={lp} items={byPrize[lp]} />)}
+      {lps.map((lp) => <PrizeReviewGroup key={lp} lp={lp} items={byPrize[lp]} desc={nameByLp[lp]} />)}
     </div>
   );
 }
