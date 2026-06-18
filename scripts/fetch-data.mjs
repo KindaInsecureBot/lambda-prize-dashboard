@@ -203,6 +203,7 @@ async function main() {
       lp: s.lp,
       pr: s.num,
       builder: s.user,
+      created: s.created,
       reviewer,
       reviewers: reqReviewers,
       draft: s.draft,
@@ -268,7 +269,7 @@ async function main() {
     stats,
     prizes,
     submissions: submissions.sort((a, b) => (a.lp || '').localeCompare(b.lp || '') || a.created.localeCompare(b.created)),
-    review: review.sort((a, b) => (a.lp || '').localeCompare(b.lp || '') || a.pr - b.pr),
+    review: review.sort((a, b) => (a.lp || '').localeCompare(b.lp || '') || a.created.localeCompare(b.created)),
   };
 
   mkdirSync(join(ROOT, 'src', 'data'), { recursive: true });

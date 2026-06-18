@@ -17,7 +17,7 @@ type Data = {
   review: any[];
 };
 
-const SCREENS = ['Overview', 'Under Review', 'Catalog', 'Submissions'] as const;
+const SCREENS = ['Overview', 'Under Review', 'Catalog'] as const;
 type Screen = typeof SCREENS[number];
 
 export default function App({ data }: { data: Data }) {
@@ -75,7 +75,6 @@ export default function App({ data }: { data: Data }) {
         {screen === 'Overview' && <Overview data={data} onJump={setScreen} />}
         {screen === 'Under Review' && <UnderReview data={data} />}
         {screen === 'Catalog' && <Catalog data={data} />}
-        {screen === 'Submissions' && <Submissions data={data} />}
       </div>
     </div>
   );
@@ -151,51 +150,91 @@ function Row({ children, gap = 8 }: { children: any; gap?: number }) {
   return <div style={{ display: 'flex', alignItems: 'center', gap, flexWrap: 'wrap' }}>{children}</div>;
 }
 
+function ReviewCard({ r, queued }: { r: any; queued?: boolean }) {
+  return (
+    <Card accent={queued ? SUBTLE : LPRIZE_BORDER}>
+      <Row>
+        <LambdaDiamond size={11} color={LPRIZE} />
+        <span style={{ fontSize: 13, fontWeight: 700 }}>{r.lp}</span>
+        <Pill color={queued ? MUTED : LPRIZE} fill={queued ? 'transparent' : LPRIZE_TINT}>
+          {queued ? 'In line' : r.draft ? 'Draft PR' : 'In review'}
+        </Pill>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontSize: 10, color: MUTED }}>PR #{r.pr}</span>
+      </Row>
+      <div style={{ display: 'flex', gap: 24, marginTop: 8, fontSize: 11 }}>
+        <div>
+          <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Builder</div>
+          <div style={{ fontWeight: 600, marginTop: 2 }}>{r.builder || '—'}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Reviewer</div>
+          <div style={{ fontWeight: 600, marginTop: 2, color: r.reviewer ? INK : WARN_RED }}>{r.reviewer || 'UNASSIGNED'}</div>
+        </div>
+        {r.created && (
+          <div>
+            <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Submitted</div>
+            <div style={{ fontWeight: 600, marginTop: 2 }}>{r.created.slice(0, 10)}</div>
+          </div>
+        )}
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <Row gap={6}>
+          {extlink(r.url, `PR #${r.pr}`, INK)}
+          {r.reviewIssue && extlink(r.reviewIssue, 'review issue', INK)}
+          {r.discord && extlink(r.discord, 'discord thread', '#5865F2')}
+        </Row>
+      </div>
+    </Card>
+  );
+}
+
+function PrizeReviewGroup({ lp, items }: { lp: string; items: any[] }) {
+  // items are pre-sorted oldest-first; the oldest is the one actually under review.
+  const [open, setOpen] = useState(false);
+  const [head, ...queue] = items;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <ReviewCard r={head} />
+      {queue.length > 0 && (
+        <div style={{ marginTop: 4 }}>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            style={{
+              cursor: 'pointer', background: 'transparent', border: `1px solid ${SUBTLE}`,
+              color: MUTED, font: 'inherit', fontSize: 11, padding: '4px 10px', width: '100%',
+              textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            <span style={{ transition: 'transform .15s', transform: open ? 'rotate(90deg)' : 'none' }}>▶</span>
+            {queue.length} more in line for {lp}
+          </button>
+          {open && (
+            <div style={{ marginTop: 6, paddingLeft: 10, borderLeft: `2px solid ${SUBTLE}` }}>
+              {queue.map((r) => <ReviewCard key={r.pr} r={r} queued />)}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UnderReview({ data }: { data: Data }) {
   // Source of truth: every open solution PR is "under review".
+  // Per prize, show only the oldest (the one actually being reviewed); the rest queue behind a dropdown.
   const byPrize: Record<string, any[]> = {};
   for (const r of data.review) (byPrize[r.lp] ||= []).push(r);
   const lps = Object.keys(byPrize).sort();
+  for (const lp of lps) byPrize[lp].sort((a, b) => (a.created || '').localeCompare(b.created || ''));
   return (
     <div>
-      <div style={{ fontSize: 11, color: MUTED, marginBottom: 4 }}>
+      <div style={{ fontSize: 11, color: MUTED, marginBottom: 12 }}>
         {data.review.length} open submission{data.review.length === 1 ? '' : 's'} awaiting review,
-        across {lps.length} prize{lps.length === 1 ? '' : 's'}. A prize is under review while it has an open solution PR.
+        across {lps.length} prize{lps.length === 1 ? '' : 's'}. Showing the oldest in review per prize; expand to see the queue.
       </div>
       {lps.length === 0 && <Empty>Nothing awaiting review.</Empty>}
-      {lps.map((lp) => (
-        <div key={lp}>
-          <SectionTitle>{lp} ({byPrize[lp].length})</SectionTitle>
-          {byPrize[lp].map((r) => (
-            <Card key={r.pr} accent={LPRIZE_BORDER}>
-              <Row>
-                <LambdaDiamond size={11} color={LPRIZE} />
-                <span style={{ fontSize: 13, fontWeight: 700 }}>{r.lp}</span>
-                <Pill color={LPRIZE} fill={LPRIZE_TINT}>{r.draft ? 'Draft PR' : 'In review'}</Pill>
-                <span style={{ flex: 1 }} />
-                <span style={{ fontSize: 10, color: MUTED }}>PR #{r.pr}</span>
-              </Row>
-              <div style={{ display: 'flex', gap: 24, marginTop: 8, fontSize: 11 }}>
-                <div>
-                  <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Builder</div>
-                  <div style={{ fontWeight: 600, marginTop: 2 }}>{r.builder || '—'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 9, color: MUTED, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Reviewer</div>
-                  <div style={{ fontWeight: 600, marginTop: 2, color: r.reviewer ? INK : WARN_RED }}>{r.reviewer || 'UNASSIGNED'}</div>
-                </div>
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <Row gap={6}>
-                  {extlink(r.url, `PR #${r.pr}`, INK)}
-                  {r.reviewIssue && extlink(r.reviewIssue, 'review issue', INK)}
-                  {r.discord && extlink(r.discord, 'discord thread', '#5865F2')}
-                </Row>
-              </div>
-            </Card>
-          ))}
-        </div>
-      ))}
+      {lps.map((lp) => <PrizeReviewGroup key={lp} lp={lp} items={byPrize[lp]} />)}
     </div>
   );
 }
