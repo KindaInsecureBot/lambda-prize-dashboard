@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   INK, PAPER, PANEL, MUTED, SUBTLE, LPRIZE, LPRIZE_TINT, LPRIZE_BORDER,
   STATUS_COLOR, STATUS_FILL, OK_GREEN, WARN_RED,
@@ -24,6 +24,24 @@ export default function App({ data }: { data: Data }) {
   const [screen, setScreen] = useState<Screen>('Overview');
   const gen = new Date(data.generatedAt);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const t = e.target as HTMLElement | null;
+      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      e.preventDefault();
+      setScreen((cur) => {
+        const i = SCREENS.indexOf(cur);
+        const next = e.key === 'ArrowRight'
+          ? (i + 1) % SCREENS.length
+          : (i - 1 + SCREENS.length) % SCREENS.length;
+        return SCREENS[next];
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <div style={{
       position: 'relative', width: '100%', height: '100%',
@@ -45,6 +63,7 @@ export default function App({ data }: { data: Data }) {
             color: screen === s ? PAPER : MUTED, fontWeight: 600,
           }}>{s}</button>
         ))}
+        <span style={{ alignSelf: 'center', marginLeft: 4, fontSize: 9, color: SUBTLE, letterSpacing: '0.04em' }}>← / → to switch</span>
       </div>
       <div style={{ position: 'absolute', top: 22, right: 24, zIndex: 6, fontSize: 10, color: MUTED, letterSpacing: '0.06em', textAlign: 'right' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
