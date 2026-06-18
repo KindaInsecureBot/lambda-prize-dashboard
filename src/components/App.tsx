@@ -110,6 +110,7 @@ function Overview({ data, onJump }: { data: Data; onJump: (s: Screen) => void })
         <Stat label="Prizes won" value={s.prizesWon} color={OK_GREEN} sub="delivered" />
         <Stat label="Submissions" value={s.totalSubmissions} sub={`${s.distinctSubmissions} distinct builder×prize`} />
         <Stat label="Under review" value={s.underReview} color={LPRIZE} sub="open submission PRs" />
+        <Stat label="Builders engaged" value={s.uniqueBuilders} sub="unique submitters" />
       </div>
 
       <SectionTitle>Submissions per prize</SectionTitle>
