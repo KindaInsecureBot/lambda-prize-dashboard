@@ -71,7 +71,7 @@ export default function App({ data }: { data: Data }) {
       </div>
 
       {/* scroll body */}
-      <div style={{ position: 'absolute', top: 100, left: 24, right: 24, bottom: 24, overflowY: 'auto', paddingRight: 6 }}>
+      <div style={{ position: 'absolute', top: 104, left: 24, right: 24, bottom: 24, overflowY: 'auto', paddingRight: 6, paddingTop: 16 }}>
         {screen === 'Overview' && <Overview data={data} onJump={setScreen} />}
         {screen === 'Under Review' && <UnderReview data={data} />}
         {screen === 'Catalog' && <Catalog data={data} />}
