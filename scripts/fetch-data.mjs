@@ -108,12 +108,33 @@ async function main() {
   // ONE published prize, and edits at most one prizes/ file (excludes bulk template PRs).
   console.log(`Classifying ${prs.length} PRs by changed files...`);
   const solutions = [];
+  const proposedRaw = [];  // open PRs that define a NEW (unpublished) prize
+  const prizeFromPath = (p) => (p.match(/prizes\/(LP-\d{4})\.md/) || [])[1] || null;
   for (const p of prs) {
     const files = await gh(`/repos/${OWNER}/${PRIZE_REPO}/pulls/${p.number}/files?per_page=100`)
       .catch(() => []);
     const paths = Array.isArray(files) ? files.map((f) => f.filename) : [];
     const solPaths = paths.filter((x) => /^solutions\/LP-\d{4}\.md$/.test(x));
     const prizePaths = paths.filter((x) => x.startsWith('prizes/'));
+    // Proposed prize: an OPEN PR that adds/edits prizes/LP-XXXX.md for an LP not yet
+    // published in the catalog, and is not itself a solution PR.
+    if (p.state === 'open' && solPaths.length === 0) {
+      const newPrizeLps = [...new Set(
+        prizePaths.map(prizeFromPath).filter(Boolean),
+      )].filter((lp) => lp !== 'LP-0000' && !prizeIdSet.has(lp));
+      for (const lp of newPrizeLps) {
+        const f = files.find((x) => x.filename === `prizes/${lp}.md`);
+        let desc = '';
+        if (f && f.raw_url) {
+          const raw = await fetch(f.raw_url, { headers }).then((r) => r.ok ? r.text() : '').catch(() => '');
+          const h = raw.match(/^#\s+(.+)$/m) || raw.match(/^title:\s*(.+)$/im);
+          if (h) desc = h[1].replace(/^LP-\d{4}[:\s-]*/i, '').trim();
+        }
+        if (!desc) desc = p.title.replace(/^\s*(add|new|prize|draft)[:\s-]*/i, '').trim() || p.title;
+        desc = desc.replace(/\s*\[[^\]]*\]\s*$/g, '').trim();  // drop trailing [Draft]/[WIP] tags
+        proposedRaw.push({ lp, desc, prNum: p.number, prUrl: p.html_url, user: p.user.login, created: p.created_at });
+      }
+    }
     const lps = [...new Set(solPaths.map(lpFromPath).filter(Boolean))];
     if (solPaths.length === 0) continue;        // not a submission
     if (prizePaths.length > 1) continue;        // bulk catalog/template PR
@@ -213,8 +234,38 @@ async function main() {
     });
   }
 
+  // --- Proposed prizes (open prize-definition PRs) ---
+  // Dedup by LP, keep the most recent PR. Rendered under the Draft label; link is the PR.
+  const proposedByLp = {};
+  for (const pr of proposedRaw) {
+    const cur = proposedByLp[pr.lp];
+    if (!cur || pr.created > cur.created) proposedByLp[pr.lp] = pr;
+  }
+  const proposedPrizes = Object.values(proposedByLp).map((pr) => ({
+    id: pr.lp,
+    desc: pr.desc || '',
+    size: null,
+    status: 'Draft',
+    stage: 'identified',
+    hasSolutionFile: false,
+    won: false,
+    winner: null,
+    deliveredByTeam: false,
+    openSubmissions: 0,
+    acceptedSubmissions: 0,
+    rejectedSubmissions: 0,
+    submissionCount: 0,
+    builderCount: 0,
+    proposed: true,
+    proposedBy: pr.user,
+    specUrl: pr.prUrl,
+    linkLabel: 'PR',
+    solutionUrl: null,
+  }));
+  console.log(`Found ${proposedPrizes.length} proposed prizes (open prize-definition PRs).`);
+
   // --- Prize catalog ---
-  const prizes = prizeIds.map((id) => {
+  const publishedPrizes = prizeIds.map((id) => {
     const meta = statusMap[id] || {};
     const subs = submissions.filter((s) => s.lp === id);
     const builders = new Set(subs.map((s) => s.user));
@@ -244,6 +295,7 @@ async function main() {
         : null,
     };
   });
+  const prizes = [...publishedPrizes, ...proposedPrizes];
 
   // --- Aggregate stats ---
   const allBuilders = new Set(submissions.map((s) => s.user));
@@ -254,6 +306,7 @@ async function main() {
     open: prizes.filter((p) => /open/i.test(p.status)).length,
     draft: prizes.filter((p) => /draft/i.test(p.status)).length,
     closed: prizes.filter((p) => /closed/i.test(p.status)).length,
+    proposed: proposedPrizes.length,
     totalSubmissions: submissions.length,
     distinctSubmissions: Object.keys(groups).length,
     underReview: review.length,

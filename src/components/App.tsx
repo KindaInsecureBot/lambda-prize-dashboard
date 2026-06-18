@@ -343,7 +343,7 @@ function Catalog({ data }: { data: Data }) {
               {p.won && <span style={{ color: OK_GREEN, fontWeight: 700 }}>{p.winner ? ` · won by ${p.winner}` : ' · delivered by team'}</span>}
             </div>
             <Row gap={6}>
-              {extlink(p.specUrl, 'spec', INK)}
+              {extlink(p.specUrl, p.linkLabel === 'PR' ? 'PR' : 'spec', INK)}
               {p.solutionUrl && extlink(p.solutionUrl, 'solution', OK_GREEN)}
             </Row>
           </div>
