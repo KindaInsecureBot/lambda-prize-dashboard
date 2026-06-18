@@ -220,6 +220,8 @@ async function main() {
     const builders = new Set(subs.map((s) => s.user));
     const merged = solutions.find((s) => s.lp === id && s.merged);
     const openCount = subs.filter((s) => s.state === 'open').length;
+    const acceptedCount = subs.filter((s) => s.merged).length;
+    const rejectedCount = subs.filter((s) => s.state !== 'open' && !s.merged).length;
     const hasSol = solutionFiles.has(id);
     return {
       id,
@@ -232,6 +234,8 @@ async function main() {
       winner: merged ? merged.user : null,
       deliveredByTeam: !merged && hasSol,
       openSubmissions: openCount,
+      acceptedSubmissions: acceptedCount,
+      rejectedSubmissions: rejectedCount,
       submissionCount: subs.length,
       builderCount: builders.size,
       specUrl: `https://github.com/${OWNER}/${PRIZE_REPO}/blob/master/prizes/${id}.md`,

@@ -80,6 +80,15 @@ export default function App({ data }: { data: Data }) {
   );
 }
 
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      <span style={{ width: 10, height: 10, background: color, display: 'inline-block' }} />
+      {label}
+    </span>
+  );
+}
+
 function Stat({ label, value, sub, color = INK }: { label: string; value: number | string; sub?: string; color?: string }) {
   return (
     <div style={{ border: `1px solid ${SUBTLE}`, background: PANEL, padding: '12px 14px', minWidth: 0 }}>
@@ -104,21 +113,33 @@ function Overview({ data, onJump }: { data: Data; onJump: (s: Screen) => void })
       </div>
 
       <SectionTitle>Submissions per prize</SectionTitle>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 10, color: MUTED, margin: '0 0 8px 2px' }}>
+        <Legend color={LPRIZE} label="Pending review" />
+        <Legend color={OK_GREEN} label="Accepted (won)" />
+        <Legend color={WARN_RED} label="Rejected / closed" />
+      </div>
       <div style={{ border: `1px solid ${SUBTLE}`, background: PANEL, padding: '14px 16px' }}>
-        {byCount.map((p) => (
-          <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-            <span style={{ width: 200, fontSize: 11, flexShrink: 0, lineHeight: 1.2 }}>
-              <span style={{ fontWeight: 700 }}>{p.id}</span>
-              <span style={{ color: MUTED }}> · {p.desc}</span>
-            </span>
-            <div style={{ flex: 1, background: 'rgba(26,26,26,0.05)', height: 16, position: 'relative' }}>
-              <div style={{ width: `${(p.submissionCount / max) * 100}%`, height: '100%', background: LPRIZE_TINT, borderRight: `2px solid ${LPRIZE}` }} />
+        {byCount.map((p) => {
+          const seg = (n: number, color: string) =>
+            n > 0 ? <div title={`${n}`} style={{ width: `${(n / max) * 100}%`, height: '100%', background: color }} /> : null;
+          return (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 9 }}>
+              <span style={{ width: 200, fontSize: 11, flexShrink: 0, lineHeight: 1.2 }}>
+                <span style={{ fontWeight: 700 }}>{p.id}</span>
+                <span style={{ color: MUTED }}> · {p.desc}</span>
+              </span>
+              <div style={{ flex: 1, background: 'rgba(26,26,26,0.05)', height: 16, display: 'flex' }}>
+                {seg(p.openSubmissions, LPRIZE)}
+                {seg(p.acceptedSubmissions, OK_GREEN)}
+                {seg(p.rejectedSubmissions, WARN_RED)}
+              </div>
+              <span style={{ width: 116, fontSize: 10, color: MUTED, textAlign: 'right', flexShrink: 0 }}>
+                {p.submissionCount} total
+                {p.openSubmissions ? ` · ${p.openSubmissions} pending` : ''}
+              </span>
             </div>
-            <span style={{ width: 92, fontSize: 10, color: MUTED, textAlign: 'right', flexShrink: 0 }}>
-              {p.submissionCount} sub · {p.builderCount} bldr
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <SectionTitle>About</SectionTitle>
