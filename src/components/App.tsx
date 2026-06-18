@@ -328,7 +328,7 @@ function Catalog({ data }: { data: Data }) {
       {prizes.map((p) => {
         const key = (/open/i.test(p.status) ? 'open' : /draft/i.test(p.status) ? 'draft' : /closed/i.test(p.status) ? 'closed' : 'unknown');
         return (
-          <div key={p.id} style={{ border: `1px solid ${p.won ? OK_GREEN : SUBTLE}`, background: PANEL, padding: '12px 14px' }}>
+          <div key={(p as any).uid || p.id} style={{ border: `1px solid ${p.won ? OK_GREEN : SUBTLE}`, background: PANEL, padding: '12px 14px' }}>
             <Row>
               <LambdaDiamond size={11} color={LPRIZE} />
               <span style={{ fontSize: 13, fontWeight: 700 }}>{p.id}</span>
@@ -343,7 +343,7 @@ function Catalog({ data }: { data: Data }) {
               {p.won && <span style={{ color: OK_GREEN, fontWeight: 700 }}>{p.winner ? ` · won by ${p.winner}` : ' · delivered by team'}</span>}
             </div>
             <Row gap={6}>
-              {extlink(p.specUrl, p.linkLabel === 'PR' ? 'PR' : 'spec', INK)}
+              {extlink(p.specUrl, (p as any).proposed ? (p.linkLabel || 'PR') : 'spec', INK)}
               {p.solutionUrl && extlink(p.solutionUrl, 'solution', OK_GREEN)}
             </Row>
           </div>

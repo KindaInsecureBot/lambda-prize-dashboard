@@ -235,14 +235,14 @@ async function main() {
   }
 
   // --- Proposed prizes (open prize-definition PRs) ---
-  // Dedup by LP, keep the most recent PR. Rendered under the Draft label; link is the PR.
-  const proposedByLp = {};
-  for (const pr of proposedRaw) {
-    const cur = proposedByLp[pr.lp];
-    if (!cur || pr.created > cur.created) proposedByLp[pr.lp] = pr;
-  }
-  const proposedPrizes = Object.values(proposedByLp).map((pr) => ({
+  // One card per OPEN PR (LP numbers are not yet assigned, so multiple PRs may
+  // compete for the same LP-XXXX). Rendered under the Draft label; link is the PR.
+  const proposedSorted = [...proposedRaw].sort(
+    (a, b) => a.lp.localeCompare(b.lp) || a.prNum - b.prNum,
+  );
+  const proposedPrizes = proposedSorted.map((pr) => ({
     id: pr.lp,
+    uid: `${pr.lp}#${pr.prNum}`,
     desc: pr.desc || '',
     size: null,
     status: 'Draft',
@@ -258,11 +258,12 @@ async function main() {
     builderCount: 0,
     proposed: true,
     proposedBy: pr.user,
+    proposedPr: pr.prNum,
     specUrl: pr.prUrl,
-    linkLabel: 'PR',
+    linkLabel: `PR #${pr.prNum}`,
     solutionUrl: null,
   }));
-  console.log(`Found ${proposedPrizes.length} proposed prizes (open prize-definition PRs).`);
+  console.log(`Found ${proposedPrizes.length} proposed-prize PRs (open prize-definition PRs).`);
 
   // --- Prize catalog ---
   const publishedPrizes = prizeIds.map((id) => {
