@@ -206,10 +206,13 @@ async function main() {
       url: i.html_url,
     };
   });
+  // STRICT: only match a review sub-issue when BOTH prize and builder match.
+  // Do NOT fall back to "any sub-issue for this LP" -- multiple builders submit to
+  // the same prize, so the first sub-issue is usually a different builder's review
+  // (e.g. aegonmyy's LP-0017 PR was wrongly linked to Thompsonmina's issue #120).
   const findSub = (lp, builder) =>
     subInfo.find((s) => s.lp === lp && s.builder && builder &&
-      s.builder.toLowerCase() === builder.toLowerCase()) ||
-    subInfo.find((s) => s.lp === lp);
+      s.builder.toLowerCase() === builder.toLowerCase()) || null;
 
   // --- Under Review board: SOURCE OF TRUTH = open solution PRs. ---
   // Fetch requested_reviewers per open PR; fall back to matching sub-issue reviewer.
