@@ -1,5 +1,7 @@
 # Lambda Prize Dashboard
 
+> **Disclaimer:** This is a personal, experimental hobby project. It is not an official Logos product. Not audited.
+
 A live BI dashboard for the Logos **λPrize** program. Static site (Astro + React),
 deployed to GitHub Pages, refreshed nightly from public GitHub data.
 
